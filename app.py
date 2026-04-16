@@ -3,51 +3,77 @@ import pandas as pd
 import joblib
 import numpy as np
 
+# Set page configuration for a centered layout and custom title
+st.set_page_config(page_title="Diabetes Risk Assessment", layout="wide")
+
 # Load the model
 model = joblib.load('model.pkl')
 
-st.title("Diabetes Prediction App")
-st.write("""
-This app predicts the likelihood of diabetes based on clinical parameters.
-""")
-
-st.sidebar.header("User Input Parameters")
-
-def user_input_features():
-    pregnancies = st.sidebar.number_input("Pregnancies", min_value=0, max_value=20, value=1)
-    glucose = st.sidebar.number_input("Glucose", min_value=0, max_value=250, value=100)
-    blood_pressure = st.sidebar.number_input("Blood Pressure", min_value=0, max_value=150, value=70)
-    skin_thickness = st.sidebar.number_input("Skin Thickness", min_value=0, max_value=100, value=20)
-    insulin = st.sidebar.number_input("Insulin", min_value=0, max_value=900, value=80)
-    bmi = st.sidebar.number_input("BMI", min_value=0.0, max_value=70.0, value=25.0)
-    dpf = st.sidebar.number_input("Diabetes Pedigree Function", min_value=0.0, max_value=2.5, value=0.5)
-    age = st.sidebar.number_input("Age", min_value=0, max_value=120, value=30)
-    
-    data = {
-        'Pregnancies': pregnancies,
-        'Glucose': glucose,
-        'BloodPressure': blood_pressure,
-        'SkinThickness': skin_thickness,
-        'Insulin': insulin,
-        'BMI': bmi,
-        'DiabetesPedigreeFunction': dpf,
-        'Age': age
+# Custom CSS to center elements and improve styling
+st.markdown("""
+    <style>
+    .main {
+        text-align: center;
     }
-    features = pd.DataFrame(data, index=[0])
-    return features
+    .stButton>button {
+        width: 100%;
+        border-radius: 20px;
+        height: 3em;
+        background-color: #007BFF;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-df = user_input_features()
+# Centered Title and Description
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    st.title("🩺 Health Diagnosis Portal")
+    st.write("Enter the patient's clinical details below to assess diabetes risk.")
+    st.divider()
 
-st.subheader('User Input Parameters')
-st.write(df)
+# Organizing inputs into columns for a better look
+with st.container():
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        preg = st.slider("Number of Pregnancies", 0, 20, 1)
+        gluc = st.number_input("Glucose Level (mg/dL)", 0, 250, 100)
+        bp = st.number_input("Blood Pressure (mm Hg)", 0, 150, 70)
+        skin = st.number_input("Skin Thickness (mm)", 0, 100, 20)
 
-if st.button("Predict"):
-    prediction = model.predict(df)
-    prediction_proba = model.predict_proba(df)
+    with c2:
+        ins = st.number_input("Insulin Level (mu U/ml)", 0, 900, 80)
+        bmi = st.number_input("Body Mass Index (BMI)", 0.0, 70.0, 25.0)
+        dpf = st.number_input("Diabetes Pedigree Function", 0.0, 2.5, 0.5)
+        age = st.slider("Age (Years)", 1, 120, 30)
 
-    st.subheader('Prediction')
-    result = 'Positive' if prediction[0] == 1 else 'Negative'
-    st.write(f"The model predicts a **{result}** result.")
+# Centering the Prediction Logic
+st.divider()
+left, mid, right = st.columns([1, 1, 1])
 
-    st.subheader('Prediction Probability')
-    st.write(pd.DataFrame(prediction_proba, columns=['Negative', 'Positive']))
+with mid:
+    if st.button("Generate Diagnostic Report"):
+        # Prepare feature vector
+        features = np.array([[preg, gluc, bp, skin, ins, bmi, dpf, age]])
+        
+        prediction = model.predict(features)
+        prediction_proba = model.predict_proba(features)
+
+        # Mapping numerical output to categorical values
+        result_map = {0: "Healthy (Negative)", 1: "At Risk (Positive)"}
+        final_result = result_map[prediction[0]]
+        
+        # Display Results
+        st.subheader("Result:")
+        if prediction[0] == 1:
+            st.error(f"Prediction: {final_result}")
+        else:
+            st.success(f"Prediction: {final_result}")
+
+        st.write(f"**Confidence:** {np.max(prediction_proba)*100:.2f}%")
+
+        # Visualization of probabilities
+        st.write("Confidence Breakdown:")
+        prob_df = pd.DataFrame(prediction_proba, columns=["Healthy", "At Risk"])
+        st.bar_chart(prob_df.T)
